@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Stack para brincar com SNS, SQS'
+Resources:
+  SampleDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: '0'
+      VisibilityTimeout: '10'
+      MessageRetentionPeriod: '1209600'
+  SampleQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: '0'
+      VisibilityTimeout: '5'
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt [SampleDLQ, Arn]
+        maxReceiveCount: '3'
+  SampleSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+      - Endpoint: !GetAtt [SampleQueue, Arn]
+        Protocol: sqs
+  SampleQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Id: SampleQueuePolicy
+        Statement:
+        - Sid: Allow-SendMessage-To-SampleQueue-From-SNS-Topic
+          Effect: Allow
+          Principal: '*'
+          Action:
+          - sqs:SendMessage
+          Resource: '*'
+          Condition:
+            ArnEquals:
+              aws:SourceArn: !Ref 'SampleSNSTopic'
+      Queues:
+      - !Ref 'SampleQueue'
